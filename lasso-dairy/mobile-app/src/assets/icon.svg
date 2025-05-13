@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" fill="#036C3E" />
+  <circle cx="512" cy="512" r="350" fill="white" stroke="#036C3E" stroke-width="20" />
+  <path d="M350 400 C 400 300, 600 300, 650 400 S 750 600, 650 700 S 450 750, 350 650 S 300 500, 350 400 Z" 
+        fill="#036C3E" stroke="white" stroke-width="15" />
+  <text x="512" y="550" font-family="Arial" font-size="180" text-anchor="middle" fill="white">LD</text>
+</svg>
