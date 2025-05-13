@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { StripeProvider } from '@stripe/stripe-react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import AppNavigator from './src/navigation/AppNavigator';
 import AuthContext from './src/contexts/AuthContext';
 import { COLORS } from './src/utils/theme';
+import supabase, { auth as supabaseAuth } from './src/services/supabaseClient';
 
 export default function App() {
   const [state, setState] = useState({
@@ -18,100 +18,232 @@ export default function App() {
   });
 
   useEffect(() => {
-    // Fetch the token from storage then navigate to the appropriate screen
-    const bootstrapAsync = async () => {
-      let userToken;
-      let userData;
-
+    // Check for existing Supabase session
+    const checkSession = async () => {
       try {
-        userToken = await AsyncStorage.getItem('userToken');
-        const userDataString = await AsyncStorage.getItem('userData');
-        if (userDataString) {
-          userData = JSON.parse(userDataString);
+        const { user, error } = await supabaseAuth.getCurrentUser();
+        
+        if (error) {
+          console.log('Error getting session:', error.message);
+          setState({
+            ...state,
+            isLoading: false,
+          });
+          return;
         }
-      } catch (e) {
-        // Restoring token failed
-        console.log('Restoring token failed');
-      }
 
-      // After restoring token, we may need to validate it in production apps
-      setState({
-        ...state,
-        userToken,
-        userData,
-        isLoading: false,
-      });
+        if (user) {
+          // Fetch additional user data from the users table
+          const { data: userData, error: profileError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+
+          if (profileError) {
+            console.log('Error fetching user profile:', profileError.message);
+          }
+
+          setState({
+            ...state,
+            userToken: user.id,
+            userData: userData || user,
+            isLoading: false,
+          });
+        } else {
+          setState({
+            ...state,
+            isLoading: false,
+          });
+        }
+      } catch (error) {
+        console.log('Session check error:', error.message);
+        setState({
+          ...state,
+          isLoading: false,
+        });
+      }
     };
 
-    bootstrapAsync();
+    checkSession();
+
+    // Set up auth state change listener
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+          // User has signed in
+          const user = session.user;
+          
+          // Fetch additional user data
+          const { data: userData, error: profileError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+
+          if (profileError) {
+            console.log('Error fetching user profile:', profileError.message);
+          }
+
+          setState({
+            ...state,
+            userToken: user.id,
+            userData: userData || user,
+            isSignout: false,
+          });
+        } else if (event === 'SIGNED_OUT') {
+          // User has signed out
+          setState({
+            ...state,
+            userToken: null,
+            userData: null,
+            isSignout: true,
+          });
+        }
+      }
+    );
+
+    return () => {
+      // Clean up the subscription when component unmounts
+      if (authListener && authListener.subscription) {
+        authListener.subscription.unsubscribe();
+      }
+    };
   }, []);
 
   const authContext = {
-    signIn: async (data) => {
-      // In a real app, you would send the data to your server for authentication
-      const { token, ...userData } = data;
-      
+    signIn: async ({ email, password }) => {
       try {
-        await AsyncStorage.setItem('userToken', token);
-        await AsyncStorage.setItem('userData', JSON.stringify(userData));
-      } catch (e) {
-        console.log('Error saving auth data', e);
+        const { data, error } = await supabaseAuth.signIn(email, password);
+        
+        if (error) {
+          console.log('Sign in error:', error.message);
+          throw error;
+        }
+        
+        // User data will be updated by the auth state change listener
+        return data;
+      } catch (error) {
+        console.log('Sign in error:', error.message);
+        throw error;
       }
-      
-      setState({
-        ...state,
-        isSignout: false,
-        userToken: token,
-        userData: userData,
-      });
     },
+    
     signOut: async () => {
       try {
-        await AsyncStorage.removeItem('userToken');
-        await AsyncStorage.removeItem('userData');
-      } catch (e) {
-        console.log('Error removing auth data', e);
+        const { error } = await supabaseAuth.signOut();
+        
+        if (error) {
+          console.log('Sign out error:', error.message);
+          throw error;
+        }
+        
+        // State will be updated by the auth state change listener
+      } catch (error) {
+        console.log('Sign out error:', error.message);
+        throw error;
       }
-      
-      setState({
-        ...state,
-        isSignout: true,
-        userToken: null,
-        userData: null,
-      });
     },
-    signUp: async (data) => {
-      // In a real app, you would send the data to your server for registration
-      const { token, ...userData } = data;
-      
+    
+    signUp: async ({ email, password, userData }) => {
       try {
-        await AsyncStorage.setItem('userToken', token);
-        await AsyncStorage.setItem('userData', JSON.stringify(userData));
-      } catch (e) {
-        console.log('Error saving auth data', e);
+        // Register user with Supabase Auth
+        const { data, error } = await supabaseAuth.signUp(email, password, {
+          name: userData.name,
+          phone: userData.phone,
+        });
+        
+        if (error) {
+          console.log('Sign up error:', error.message);
+          throw error;
+        }
+        
+        // Create a record in the users table
+        if (data.user) {
+          const { error: profileError } = await supabase.from('users').insert([
+            {
+              id: data.user.id,
+              email: email,
+              name: userData.name,
+              phone: userData.phone,
+              street: userData.street,
+              city: userData.city,
+              state: userData.state,
+              zip_code: userData.zipCode,
+              country: userData.country || 'USA',
+              role: 'customer',
+            },
+          ]);
+          
+          if (profileError) {
+            console.log('Error creating user profile:', profileError.message);
+            throw profileError;
+          }
+        }
+        
+        // User data will be updated by the auth state change listener
+        return data;
+      } catch (error) {
+        console.log('Sign up error:', error.message);
+        throw error;
       }
-      
-      setState({
-        ...state,
-        isSignout: false,
-        userToken: token,
-        userData: userData,
-      });
     },
+    
     updateUserData: async (newUserData) => {
-      const updatedUserData = { ...state.userData, ...newUserData };
-      
       try {
-        await AsyncStorage.setItem('userData', JSON.stringify(updatedUserData));
-      } catch (e) {
-        console.log('Error updating user data', e);
+        if (!state.userData || !state.userData.id) {
+          throw new Error('User not authenticated');
+        }
+        
+        const userId = state.userData.id;
+        
+        // Update user metadata if needed
+        if (newUserData.name || newUserData.phone) {
+          const { error: authError } = await supabaseAuth.updateUser({
+            name: newUserData.name,
+            phone: newUserData.phone,
+          });
+          
+          if (authError) {
+            console.log('Error updating auth data:', authError.message);
+            throw authError;
+          }
+        }
+        
+        // Update profile in users table
+        const { data, error } = await supabase
+          .from('users')
+          .update({
+            name: newUserData.name,
+            phone: newUserData.phone,
+            street: newUserData.street,
+            city: newUserData.city,
+            state: newUserData.state,
+            zip_code: newUserData.zipCode,
+            country: newUserData.country,
+          })
+          .eq('id', userId)
+          .select()
+          .single();
+        
+        if (error) {
+          console.log('Error updating user profile:', error.message);
+          throw error;
+        }
+        
+        // Update local state
+        setState({
+          ...state,
+          userData: { ...state.userData, ...data },
+        });
+        
+        return data;
+      } catch (error) {
+        console.log('Update user data error:', error.message);
+        throw error;
       }
-      
-      setState({
-        ...state,
-        userData: updatedUserData,
-      });
     },
+    
     userData: state.userData,
   };
 
