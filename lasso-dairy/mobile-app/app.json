@@ -34,6 +34,7 @@
       }
     },
     "plugins": [
+      "expo-dev-client",
       [
         "@stripe/stripe-react-native",
         {
@@ -41,6 +42,9 @@
           "enableGooglePay": true
         }
       ]
-    ]
+    ],
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    }
   }
 }
