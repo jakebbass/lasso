@@ -1,268 +1,197 @@
-import React, { useState, useEffect } from 'react';
-import { StatusBar } from 'expo-status-bar';
+import React, { useState, useEffect, useMemo, useReducer } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { StripeProvider } from '@stripe/stripe-react-native';
+import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-
+import { COLORS } from './src/utils/theme';
 import AppNavigator from './src/navigation/AppNavigator';
 import AuthContext from './src/contexts/AuthContext';
-import { COLORS } from './src/utils/theme';
-import supabase, { auth as supabaseAuth } from './src/services/supabaseClient';
+import supabase, { auth, users } from './src/services/supabaseClient';
+import 'react-native-url-polyfill/auto';
 
 export default function App() {
-  const [state, setState] = useState({
-    isLoading: true,
-    isSignout: false,
-    userToken: null,
-    userData: null,
-  });
+  // Authentication reducer to handle state transitions
+  const [state, dispatch] = useReducer(
+    (prevState, action) => {
+      switch (action.type) {
+        case 'RESTORE_TOKEN':
+          return {
+            ...prevState,
+            userToken: action.token,
+            userData: action.userData,
+            isLoading: false,
+          };
+        case 'SIGN_IN':
+          return {
+            ...prevState,
+            isSignout: false,
+            userToken: action.token,
+            userData: action.userData,
+          };
+        case 'SIGN_OUT':
+          return {
+            ...prevState,
+            isSignout: true,
+            userToken: null,
+            userData: null,
+          };
+        case 'UPDATE_USER_DATA':
+          return {
+            ...prevState,
+            userData: action.userData,
+          };
+      }
+    },
+    {
+      isLoading: true,
+      isSignout: false,
+      userToken: null,
+      userData: null,
+    }
+  );
 
+  // Initialize app - check if user is already authenticated
   useEffect(() => {
-    // Check for existing Supabase session
-    const checkSession = async () => {
+    const bootstrapAsync = async () => {
       try {
-        const { user, error } = await supabaseAuth.getCurrentUser();
+        // Check for existing session
+        const { session } = await auth.getSession();
         
-        if (error) {
-          console.log('Error getting session:', error.message);
-          setState({
-            ...state,
-            isLoading: false,
-          });
-          return;
-        }
-
-        if (user) {
-          // Fetch additional user data from the users table
-          const { data: userData, error: profileError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', user.id)
-            .single();
-
-          if (profileError) {
-            console.log('Error fetching user profile:', profileError.message);
+        if (session) {
+          // If session exists, get user data from Supabase
+          const user = await auth.getUser();
+          let userData = user.user_metadata || {};
+          
+          // Get additional user data from the users table if needed
+          try {
+            const { data: profileData, error } = await users.getProfile(user.id);
+            if (!error && profileData) {
+              userData = { ...userData, ...profileData };
+            }
+          } catch (error) {
+            console.error('Error fetching user profile:', error);
           }
-
-          setState({
-            ...state,
-            userToken: user.id,
-            userData: userData || user,
-            isLoading: false,
+          
+          dispatch({ 
+            type: 'RESTORE_TOKEN', 
+            token: session.access_token,
+            userData,
           });
         } else {
-          setState({
-            ...state,
-            isLoading: false,
-          });
+          dispatch({ type: 'RESTORE_TOKEN', token: null, userData: null });
         }
       } catch (error) {
-        console.log('Session check error:', error.message);
-        setState({
-          ...state,
-          isLoading: false,
-        });
+        console.error('Error restoring token:', error);
+        dispatch({ type: 'RESTORE_TOKEN', token: null, userData: null });
       }
     };
 
-    checkSession();
+    bootstrapAsync();
 
-    // Set up auth state change listener
+    // Listen for auth state changes
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === 'SIGNED_IN' && session) {
           // User has signed in
-          const user = session.user;
+          const user = await auth.getUser();
+          let userData = user.user_metadata || {};
           
-          // Fetch additional user data
-          const { data: userData, error: profileError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', user.id)
-            .single();
-
-          if (profileError) {
-            console.log('Error fetching user profile:', profileError.message);
+          // Get additional user data from the users table if needed
+          try {
+            const { data: profileData, error } = await users.getProfile(user.id);
+            if (!error && profileData) {
+              userData = { ...userData, ...profileData };
+            }
+          } catch (error) {
+            console.error('Error fetching user profile:', error);
           }
-
-          setState({
-            ...state,
-            userToken: user.id,
-            userData: userData || user,
-            isSignout: false,
+          
+          dispatch({ 
+            type: 'SIGN_IN', 
+            token: session.access_token, 
+            userData,
           });
         } else if (event === 'SIGNED_OUT') {
           // User has signed out
-          setState({
-            ...state,
-            userToken: null,
-            userData: null,
-            isSignout: true,
-          });
+          dispatch({ type: 'SIGN_OUT' });
         }
       }
     );
 
     return () => {
-      // Clean up the subscription when component unmounts
-      if (authListener && authListener.subscription) {
-        authListener.subscription.unsubscribe();
-      }
+      authListener?.subscription?.unsubscribe();
     };
   }, []);
 
-  const authContext = {
-    signIn: async ({ email, password }) => {
-      try {
-        const { data, error } = await supabaseAuth.signIn(email, password);
-        
-        if (error) {
-          console.log('Sign in error:', error.message);
-          throw error;
-        }
-        
-        // User data will be updated by the auth state change listener
-        return data;
-      } catch (error) {
-        console.log('Sign in error:', error.message);
-        throw error;
-      }
-    },
-    
-    signOut: async () => {
-      try {
-        const { error } = await supabaseAuth.signOut();
-        
-        if (error) {
-          console.log('Sign out error:', error.message);
-          throw error;
-        }
-        
-        // State will be updated by the auth state change listener
-      } catch (error) {
-        console.log('Sign out error:', error.message);
-        throw error;
-      }
-    },
-    
-    signUp: async ({ email, password, userData }) => {
-      try {
-        // Register user with Supabase Auth
-        const { data, error } = await supabaseAuth.signUp(email, password, {
-          name: userData.name,
-          phone: userData.phone,
-        });
-        
-        if (error) {
-          console.log('Sign up error:', error.message);
-          throw error;
-        }
-        
-        // Create a record in the users table
-        if (data.user) {
-          const { error: profileError } = await supabase.from('users').insert([
-            {
-              id: data.user.id,
-              email: email,
-              name: userData.name,
-              phone: userData.phone,
-              street: userData.street,
-              city: userData.city,
-              state: userData.state,
-              zip_code: userData.zipCode,
-              country: userData.country || 'USA',
-              role: 'customer',
-            },
-          ]);
+  // Create the auth context value object
+  const authContext = useMemo(
+    () => ({
+      signIn: async (credentials) => {
+        try {
+          const { data } = await auth.signIn(credentials);
           
-          if (profileError) {
-            console.log('Error creating user profile:', profileError.message);
-            throw profileError;
+          // No need to dispatch here as the auth state change listener will handle it
+          return data;
+        } catch (error) {
+          throw error;
+        }
+      },
+      signUp: async ({ email, password, userData }) => {
+        try {
+          await auth.signUp({ email, password, userData });
+          
+          // No need to dispatch here as the auth state change listener will handle it
+          // on successful sign-in, which happens automatically after sign-up
+        } catch (error) {
+          throw error;
+        }
+      },
+      signOut: async () => {
+        try {
+          await auth.signOut();
+          // No need to dispatch here as the auth state change listener will handle it
+        } catch (error) {
+          throw error;
+        }
+      },
+      updateUserData: async (newUserData) => {
+        try {
+          if (!state.userData || !state.userData.id) {
+            throw new Error('User not authenticated');
           }
-        }
-        
-        // User data will be updated by the auth state change listener
-        return data;
-      } catch (error) {
-        console.log('Sign up error:', error.message);
-        throw error;
-      }
-    },
-    
-    updateUserData: async (newUserData) => {
-      try {
-        if (!state.userData || !state.userData.id) {
-          throw new Error('User not authenticated');
-        }
-        
-        const userId = state.userData.id;
-        
-        // Update user metadata if needed
-        if (newUserData.name || newUserData.phone) {
-          const { error: authError } = await supabaseAuth.updateUser({
-            name: newUserData.name,
-            phone: newUserData.phone,
+          
+          const { data, error } = await users.updateProfile(
+            state.userData.id,
+            newUserData
+          );
+          
+          if (error) throw error;
+          
+          dispatch({
+            type: 'UPDATE_USER_DATA',
+            userData: { ...state.userData, ...newUserData },
           });
           
-          if (authError) {
-            console.log('Error updating auth data:', authError.message);
-            throw authError;
-          }
-        }
-        
-        // Update profile in users table
-        const { data, error } = await supabase
-          .from('users')
-          .update({
-            name: newUserData.name,
-            phone: newUserData.phone,
-            street: newUserData.street,
-            city: newUserData.city,
-            state: newUserData.state,
-            zip_code: newUserData.zipCode,
-            country: newUserData.country,
-          })
-          .eq('id', userId)
-          .select()
-          .single();
-        
-        if (error) {
-          console.log('Error updating user profile:', error.message);
+          return data;
+        } catch (error) {
           throw error;
         }
-        
-        // Update local state
-        setState({
-          ...state,
-          userData: { ...state.userData, ...data },
-        });
-        
-        return data;
-      } catch (error) {
-        console.log('Update user data error:', error.message);
-        throw error;
-      }
-    },
-    
-    userData: state.userData,
-  };
+      },
+      userData: state.userData,
+    }),
+    [state.userData]
+  );
 
   return (
     <SafeAreaProvider>
       <AuthContext.Provider value={authContext}>
-        <StripeProvider
-          publishableKey="your_stripe_publishable_key_here"
-          merchantIdentifier="merchant.com.lassodairy"
-        >
-          <NavigationContainer>
-            <StatusBar style="light" backgroundColor={COLORS.primary} />
-            <AppNavigator 
-              isLoading={state.isLoading}
-              isSignout={state.isSignout}
-              userToken={state.userToken}
-            />
-          </NavigationContainer>
-        </StripeProvider>
+        <NavigationContainer>
+          <StatusBar style="auto" backgroundColor={COLORS.background} />
+          <AppNavigator
+            isLoading={state.isLoading}
+            userToken={state.userToken}
+            isSignout={state.isSignout}
+          />
+        </NavigationContainer>
       </AuthContext.Provider>
     </SafeAreaProvider>
   );

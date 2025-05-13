@@ -1,90 +1,174 @@
 import { createClient } from '@supabase/supabase-js';
-
-// Supabase configuration from environment variables
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://mnqmjrftcvuimfiredvd.supabase.co';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ucW1qcmZ0Y3Z1aW1maXJlZHZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcxMTAxMTEsImV4cCI6MjA2MjY4NjExMX0.mkkz0cjdgRrlVPiy5TLvG8wyHTsI7HEIyxPN7S-fzyo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY } from '@env';
 
 // Initialize Supabase client
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabase = createClient(
+  EXPO_PUBLIC_SUPABASE_URL,
+  EXPO_PUBLIC_SUPABASE_ANON_KEY,
+  {
+    auth: {
+      storage: AsyncStorage,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false,
+    },
+  }
+);
 
-// User authentication methods
+// Auth services
 export const auth = {
   // Sign up a new user
-  signUp: async (email, password, userData) => {
+  signUp: async ({ email, password, userData }) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: userData,
+        data: {
+          name: userData.name,
+          phone: userData.phone,
+        },
       },
     });
-    return { data, error };
+
+    if (error) throw error;
+    return { data };
   },
 
   // Sign in an existing user
-  signIn: async (email, password) => {
+  signIn: async ({ email, password }) => {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    return { data, error };
+
+    if (error) throw error;
+    return { data };
   },
 
   // Sign out the current user
   signOut: async () => {
     const { error } = await supabase.auth.signOut();
-    return { error };
+    if (error) throw error;
+  },
+
+  // Get the current session
+  getSession: async () => {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    return data;
   },
 
   // Get the current user
-  getCurrentUser: async () => {
-    const { data: { user }, error } = await supabase.auth.getUser();
-    return { user, error };
+  getUser: async () => {
+    const { data, error } = await supabase.auth.getUser();
+    if (error) throw error;
+    return data.user;
   },
 
-  // Update user data
-  updateUser: async (userData) => {
+  // Reset password
+  resetPasswordForEmail: async (email, options) => {
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, options);
+    if (error) throw error;
+    return { data };
+  },
+
+  // Update password
+  updatePassword: async (newPassword) => {
     const { data, error } = await supabase.auth.updateUser({
-      data: userData,
+      password: newPassword,
     });
+    if (error) throw error;
+    return { data };
+  },
+};
+
+// User profile services
+export const users = {
+  // Get user profile
+  getProfile: async (userId) => {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    return { data, error };
+  },
+
+  // Update user profile
+  updateProfile: async (userId, userData) => {
+    const { data, error } = await supabase
+      .from('users')
+      .update(userData)
+      .eq('id', userId);
+
+    return { data, error };
+  },
+
+  // Get user addresses
+  getAddresses: async (userId) => {
+    const { data, error } = await supabase
+      .from('user_addresses')
+      .select('*')
+      .eq('user_id', userId)
+      .order('is_default', { ascending: false });
+
+    return { data, error };
+  },
+
+  // Add user address
+  addAddress: async (address) => {
+    const { data, error } = await supabase
+      .from('user_addresses')
+      .insert(address);
+
+    return { data, error };
+  },
+
+  // Update user address
+  updateAddress: async (addressId, address) => {
+    const { data, error } = await supabase
+      .from('user_addresses')
+      .update(address)
+      .eq('id', addressId);
+
+    return { data, error };
+  },
+
+  // Delete user address
+  deleteAddress: async (addressId) => {
+    const { data, error } = await supabase
+      .from('user_addresses')
+      .delete()
+      .eq('id', addressId);
+
     return { data, error };
   },
 };
 
-// Product methods
+// Products services
 export const products = {
   // Get all products
   getAll: async () => {
     const { data, error } = await supabase
       .from('products')
       .select('*')
-      .eq('active', true);
+      .eq('active', true)
+      .order('name');
+
     return { data, error };
   },
 
-  // Get a single product by ID
-  getById: async (id) => {
+  // Get product by ID
+  getById: async (productId) => {
     const { data, error } = await supabase
       .from('products')
       .select('*')
-      .eq('id', id)
+      .eq('id', productId)
       .single();
-    return { data, error };
-  },
 
-  // Get product availability for a specific date
-  getAvailability: async (productId, date) => {
-    const dateStr = date.toISOString().split('T')[0]; // Format: YYYY-MM-DD
-    const { data, error } = await supabase
-      .from('product_availability')
-      .select('quantity')
-      .eq('product_id', productId)
-      .eq('available_date', dateStr)
-      .single();
-    return { 
-      available: data?.quantity || 0,
-      error 
-    };
+    return { data, error };
   },
 
   // Get products by category
@@ -93,140 +177,137 @@ export const products = {
       .from('products')
       .select('*')
       .eq('category', category)
-      .eq('active', true);
+      .eq('active', true)
+      .order('name');
+
     return { data, error };
+  },
+
+  // Search products
+  search: async (query) => {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('active', true)
+      .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
+      .order('name');
+
+    return { data, error };
+  },
+
+  // Get product availability
+  getAvailability: async (productId, date) => {
+    const formattedDate = date instanceof Date
+      ? date.toISOString().split('T')[0]
+      : date;
+
+    const { data, error } = await supabase
+      .from('product_availability')
+      .select('quantity')
+      .eq('product_id', productId)
+      .eq('available_date', formattedDate)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      return { available: 0, error };
+    }
+
+    return { available: data?.quantity || 0, error: null };
   },
 };
 
-// Order methods
+// Orders services
 export const orders = {
+  // Get orders by user
+  getByUser: async (userId) => {
+    const { data, error } = await supabase
+      .from('orders')
+      .select(`
+        *,
+        items:order_items(*)
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    return { data, error };
+  },
+
+  // Get order details
+  getById: async (orderId) => {
+    const { data, error } = await supabase
+      .from('orders')
+      .select(`
+        *,
+        items:order_items(*)
+      `)
+      .eq('id', orderId)
+      .single();
+
+    return { data, error };
+  },
+
   // Create a new order
   create: async (orderData) => {
-    // First, create the order
+    // First create the order
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .insert([{
+      .insert({
         user_id: orderData.userId,
         delivery_date: orderData.deliveryDate,
-        total_amount: 0, // This will be calculated by the trigger
-        payment_status: 'pending',
-        status: 'pending',
+        total_amount: orderData.totalAmount,
+        payment_status: orderData.paymentStatus || 'pending',
+        status: orderData.status || 'pending',
+        payment_id: orderData.paymentId,
         recurring: orderData.recurring || false,
         recurring_type: orderData.recurringType || 'none',
+        next_delivery_date: orderData.nextDeliveryDate,
         street: orderData.street,
         city: orderData.city,
         state: orderData.state,
         zip_code: orderData.zipCode,
         country: orderData.country || 'USA',
         notes: orderData.notes,
-      }])
+      })
       .select()
       .single();
 
     if (orderError) {
-      return { error: orderError };
+      throw orderError;
     }
 
-    // Then, add order items
-    const orderItems = orderData.products.map(product => ({
+    // Then create order items
+    const orderItems = orderData.items.map(item => ({
       order_id: order.id,
-      product_id: product.id,
-      quantity: product.quantity,
-      price: product.price,
-      name: product.name,
-      size: product.size,
-      category: product.category,
+      product_id: item.id,
+      quantity: item.quantity,
+      price: item.price,
+      name: item.name,
+      size: item.size,
+      category: item.category,
     }));
 
     const { error: itemsError } = await supabase
       .from('order_items')
       .insert(orderItems);
 
-    // Get the updated order with calculated total
-    const { data: updatedOrder, error: updateError } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('id', order.id)
-      .single();
+    if (itemsError) {
+      throw itemsError;
+    }
 
-    return { 
-      data: updatedOrder, 
-      error: itemsError || updateError 
-    };
-  },
-
-  // Get all orders for the current user
-  getUserOrders: async (userId) => {
-    const { data, error } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        order_items(*)
-      `)
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-    return { data, error };
-  },
-
-  // Get order details by ID
-  getById: async (orderId) => {
-    const { data, error } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        order_items(*)
-      `)
-      .eq('id', orderId)
-      .single();
-    return { data, error };
-  },
-
-  // Update order status
-  updateStatus: async (orderId, status) => {
-    const { data, error } = await supabase
-      .from('orders')
-      .update({ status })
-      .eq('id', orderId)
-      .select()
-      .single();
-    return { data, error };
+    return { order };
   },
 
   // Cancel an order
-  cancelOrder: async (orderId) => {
+  cancel: async (orderId) => {
     const { data, error } = await supabase
       .from('orders')
       .update({ status: 'cancelled' })
       .eq('id', orderId)
       .select()
       .single();
+
     return { data, error };
   },
 };
 
-// User profile methods
-export const userProfiles = {
-  // Get user profile
-  get: async (userId) => {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single();
-    return { data, error };
-  },
-
-  // Update user profile
-  update: async (userId, profileData) => {
-    const { data, error } = await supabase
-      .from('users')
-      .update(profileData)
-      .eq('id', userId)
-      .select()
-      .single();
-    return { data, error };
-  },
-};
-
-// Default export
 export default supabase;
