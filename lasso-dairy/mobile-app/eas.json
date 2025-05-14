@@ -1,0 +1,43 @@
+{
+  "cli": {
+    "version": ">= 5.9.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "APP_ENV": "development"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "APP_ENV": "development"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "env": {
+        "APP_ENV": "production"
+      },
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "jake@viehq.com",
+        "ascAppId": "4H2DZ2FCZ9",
+        "appleTeamId": "RCPV4JYL9A"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./play-store-credentials.json",
+        "track": "production"
+      }
+    }
+  }
+}

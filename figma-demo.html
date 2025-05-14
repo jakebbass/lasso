@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Figma Downloaded Images</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .image-container {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .image-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            border: 1px solid #eee;
+            border-radius: 5px;
+        }
+        .image-item h2 {
+            margin-top: 0;
+            color: #555;
+        }
+        .image-display {
+            background-color: #fafafa;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 10px 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 200px;
+        }
+        img, svg {
+            max-width: 100%;
+            max-height: 300px;
+        }
+        .metadata {
+            font-size: 14px;
+            color: #777;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Images Downloaded via Figma MCP Server</h1>
+    
+    <div class="image-container">
+        <div class="image-item">
+            <h2>Logo Element</h2>
+            <div class="image-display">
+                <img src="figma-images/logo-element.svg" alt="Logo Element">
+            </div>
+            <div class="metadata">
+                <p>File: logo-element.svg</p>
+                <p>Node ID: 211:5476</p>
+            </div>
+        </div>
+
+        <div class="image-item">
+            <h2>Background Shape</h2>
+            <div class="image-display">
+                <img src="figma-images/background-shape.svg" alt="Background Shape">
+            </div>
+            <div class="metadata">
+                <p>File: background-shape.svg</p>
+                <p>Node ID: 211:5454</p>
+            </div>
+        </div>
+
+        <div class="image-item">
+            <h2>Map Location Icon</h2>
+            <div class="image-display">
+                <img src="figma-images/map-location-icon.svg" alt="Map Location Icon">
+            </div>
+            <div class="metadata">
+                <p>File: map-location-icon.svg</p>
+                <p>Node ID: I1007:8468;41:504</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

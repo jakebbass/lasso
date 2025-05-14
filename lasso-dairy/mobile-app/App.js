@@ -2,13 +2,36 @@ import React, { useState, useEffect, useMemo, useReducer } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { View, Text, Button } from 'react-native';
 import { COLORS } from './src/utils/theme';
 import AppNavigator from './src/navigation/AppNavigator';
 import AuthContext from './src/contexts/AuthContext';
 import supabase, { auth, users } from './src/services/supabaseClient';
+import { initializeSentry, reportError } from './src/utils/sentryConfig';
 import 'react-native-url-polyfill/auto';
 
+// Initialize sentry
+const sentryUtils = initializeSentry();
+
 export default function App() {
+  // Error boundary for the entire app
+  const [hasError, setHasError] = useState(false);
+
+  // Handle uncaught errors globally
+  useEffect(() => {
+    const errorHandler = (error, isFatal) => {
+      reportError(error, { isFatal });
+      setHasError(true);
+    };
+
+    // Set up global error handler
+    const subscription = global.ErrorUtils.setGlobalHandler(errorHandler);
+    
+    return () => {
+      // Clean up error handler on unmount
+      global.ErrorUtils.setGlobalHandler(subscription);
+    };
+  }, []);
   // Authentication reducer to handle state transitions
   const [state, dispatch] = useReducer(
     (prevState, action) => {
@@ -49,6 +72,25 @@ export default function App() {
     }
   );
 
+  // Reset error state
+  const resetErrorBoundary = () => {
+    setHasError(false);
+  };
+
+  // Error fallback component
+  if (hasError) {
+    return (
+      <SafeAreaProvider>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontSize: 18, marginBottom: 20 }}>
+            Something went wrong
+          </Text>
+          <Button title="Try again" onPress={resetErrorBoundary} />
+        </View>
+      </SafeAreaProvider>
+    );
+  }
+
   // Initialize app - check if user is already authenticated
   useEffect(() => {
     const bootstrapAsync = async () => {
@@ -70,6 +112,9 @@ export default function App() {
           } catch (error) {
             console.error('Error fetching user profile:', error);
           }
+          
+          // Set user in Sentry for error tracking
+          sentryUtils.setUserContext({ id: user.id, name: userData.name });
           
           dispatch({ 
             type: 'RESTORE_TOKEN', 
@@ -104,6 +149,9 @@ export default function App() {
           } catch (error) {
             console.error('Error fetching user profile:', error);
           }
+          
+          // Set user in Sentry for error tracking
+          sentryUtils.setUserContext({ id: user.id, name: userData.name });
           
           dispatch({ 
             type: 'SIGN_IN', 
@@ -141,6 +189,12 @@ export default function App() {
           
           // No need to dispatch here as the auth state change listener will handle it
           // on successful sign-in, which happens automatically after sign-up
+          try {
+            return await auth.signIn({ email, password });
+          } catch (error) {
+            reportError(error, { action: 'signUp' });
+            throw error;
+          }
         } catch (error) {
           throw error;
         }
@@ -149,7 +203,10 @@ export default function App() {
         try {
           await auth.signOut();
           // No need to dispatch here as the auth state change listener will handle it
+          // Reset Sentry user when signing out
+          sentryUtils.setUserContext(null);
         } catch (error) {
+          reportError(error, { action: 'signOut' });
           throw error;
         }
       },
