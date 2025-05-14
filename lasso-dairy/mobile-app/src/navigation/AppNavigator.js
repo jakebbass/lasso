@@ -1,7 +1,9 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { COLORS, FONTS, SIZES } from '../utils/theme';
 
 // Auth Screens
@@ -9,6 +11,9 @@ import SplashScreen from '../screens/auth/SplashScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+
+// Debug Screens - only included in development builds
+import SentryDebugScreen from '../screens/debug/SentryDebugScreen';
 
 // Main App Screens
 import HomeScreen from '../screens/home/HomeScreen';
@@ -19,6 +24,9 @@ import OrdersScreen from '../screens/orders/OrdersScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+
+// Check if we're in development mode
+const isDevelopment = Constants.expoConfig?.extra?.EXPO_PUBLIC_ENVIRONMENT !== 'production';
 
 const MainTabNavigator = () => {
   return (
@@ -58,6 +66,24 @@ const MainTabNavigator = () => {
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Orders" component={OrdersScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
+      
+      {/* Debug tab only shown in development */}
+      {isDevelopment && (
+        <Tab.Screen 
+          name="Debug" 
+          component={SentryDebugScreen}
+          options={{
+            tabBarIcon: ({ focused, color, size }) => (
+              <Ionicons 
+                name={focused ? 'bug' : 'bug-outline'} 
+                size={size} 
+                color={color} 
+              />
+            ),
+            tabBarLabel: 'Debug',
+          }}
+        />
+      )}
     </Tab.Navigator>
   );
 };
@@ -98,6 +124,24 @@ const AppNavigator = ({ isLoading, userToken, isSignout }) => {
           <Stack.Screen name="MainApp" component={MainTabNavigator} />
           <Stack.Screen name="ProductDetails" component={ProductDetailsScreen} />
           <Stack.Screen name="Cart" component={CartScreen} />
+          
+          {/* Debug screens - only accessible in development */}
+          {isDevelopment && (
+            <Stack.Group screenOptions={{ headerShown: true }}>
+              <Stack.Screen 
+                name="SentryDebug" 
+                component={SentryDebugScreen}
+                options={({ navigation }) => ({
+                  title: 'Sentry Debug',
+                  headerRight: () => (
+                    <TouchableOpacity onPress={() => navigation.goBack()}>
+                      <Ionicons name="close" size={24} color={COLORS.black} />
+                    </TouchableOpacity>
+                  ),
+                })}
+              />
+            </Stack.Group>
+          )}
         </>
       )}
     </Stack.Navigator>

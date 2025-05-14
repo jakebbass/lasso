@@ -2,34 +2,97 @@ import React, { useState, useEffect, useMemo, useReducer } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { View, Text, Button } from 'react-native';
+import { View, Text, Button, Platform, AppState, LogBox } from 'react-native';
 import { COLORS } from './src/utils/theme';
 import AppNavigator from './src/navigation/AppNavigator';
 import AuthContext from './src/contexts/AuthContext';
 import supabase, { auth, users } from './src/services/supabaseClient';
-import { initializeSentry, reportError } from './src/utils/sentryConfig';
+import { initializeSentry, reportError, withErrorBoundary } from './src/utils/sentryConfig';
+import * as Sentry from 'sentry-expo';
+import * as Updates from 'expo-updates';
+import Constants from 'expo-constants';
 import 'react-native-url-polyfill/auto';
+
+// Ignore specific warnings that might clutter logs
+LogBox.ignoreLogs([
+  'Constants.deviceYearClass',
+  'Constants.manifest',
+]);
 
 // Initialize sentry
 const sentryUtils = initializeSentry();
 
+// Get current app info for crash reporting
+const getAppInfo = () => ({
+  appVersion: Constants.expoConfig?.version || '1.0.0',
+  buildNumber: Constants.expoConfig?.runtimeVersion || '1.0.0',
+  updateId: Updates.updateId || 'none',
+  jsEngine: Constants.jsEngine || 'hermes',
+  environment: Constants.expoConfig?.extra?.EXPO_PUBLIC_ENVIRONMENT || 'development'
+});
+
 export default function App() {
   // Error boundary for the entire app
   const [hasError, setHasError] = useState(false);
+  const [errorDetails, setErrorDetails] = useState(null);
+  
+  // Track app state changes
+  useEffect(() => {
+    const appInfo = getAppInfo();
+    
+    // Record app info on startup
+    sentryUtils.setTag('js_engine', appInfo.jsEngine);
+    sentryUtils.setTag('expo_update_id', appInfo.updateId);
+    
+    // Add breadcrumb for app start
+    sentryUtils.addBreadcrumb({
+      category: 'app',
+      message: 'App started',
+      level: 'info',
+      data: appInfo
+    });
+    
+    // Monitor app state changes
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      sentryUtils.addBreadcrumb({
+        category: 'app',
+        message: `App state changed to ${nextAppState}`,
+        level: 'info',
+      });
+    });
+    
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   // Handle uncaught errors globally
   useEffect(() => {
     const errorHandler = (error, isFatal) => {
-      reportError(error, { isFatal });
+      const stackTrace = error.stack || '';
+      const crashData = {
+        isFatal,
+        name: error.name,
+        message: error.message,
+        stackPreview: stackTrace.split('\n').slice(0, 3).join('\n'),
+        ...getAppInfo()
+      };
+      
+      // Report to Sentry
+      reportError(error, crashData, isFatal);
+      
+      // Update UI
+      setErrorDetails(crashData);
       setHasError(true);
     };
 
     // Set up global error handler
-    const subscription = global.ErrorUtils.setGlobalHandler(errorHandler);
+    const previousHandler = global.ErrorUtils.getGlobalHandler();
+    global.ErrorUtils.setGlobalHandler(errorHandler);
     
     return () => {
-      // Clean up error handler on unmount
-      global.ErrorUtils.setGlobalHandler(subscription);
+      // Restore previous handler on unmount
+      global.ErrorUtils.setGlobalHandler(previousHandler);
     };
   }, []);
   // Authentication reducer to handle state transitions
@@ -72,20 +135,72 @@ export default function App() {
     }
   );
 
-  // Reset error state
-  const resetErrorBoundary = () => {
-    setHasError(false);
+  // Reset error state and attempt recovery
+  const resetErrorBoundary = async () => {
+    try {
+      // Try to get updates if available
+      if (Constants.expoConfig?.extra?.EXPO_PUBLIC_ENVIRONMENT === 'production') {
+        sentryUtils.addBreadcrumb({
+          category: 'app',
+          message: 'Checking for updates after crash',
+          level: 'info'
+        });
+        
+        try {
+          const update = await Updates.checkForUpdateAsync();
+          if (update.isAvailable) {
+            await Updates.fetchUpdateAsync();
+            await Updates.reloadAsync();
+            return; // If we get here, the reload failed
+          }
+        } catch (updateError) {
+          reportError(updateError, { action: 'check_update_after_crash' });
+        }
+      }
+    } finally {
+      // Reset the error state regardless of update success
+      setHasError(false);
+      setErrorDetails(null);
+    }
   };
 
   // Error fallback component
   if (hasError) {
     return (
       <SafeAreaProvider>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ fontSize: 18, marginBottom: 20 }}>
-            Something went wrong
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <Text style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 10, textAlign: 'center' }}>
+            Oops! Something went wrong
           </Text>
-          <Button title="Try again" onPress={resetErrorBoundary} />
+          
+          <Text style={{ fontSize: 16, marginBottom: 20, textAlign: 'center', color: '#666' }}>
+            The app encountered an unexpected error.
+            {errorDetails?.isFatal ? ' This error forced the app to stop.' : ''}
+          </Text>
+          
+          {errorDetails && (
+            <View style={{ 
+                backgroundColor: '#f8f8f8', 
+                padding: 15, 
+                borderRadius: 8, 
+                marginBottom: 20,
+                width: '100%',
+                borderColor: '#ddd',
+                borderWidth: 1
+              }}>
+              <Text style={{ fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 12 }}>
+                {errorDetails.name}: {errorDetails.message}
+              </Text>
+            </View>
+          )}
+          
+          <Button title="Restart App" onPress={resetErrorBoundary} />
+          
+          <Text style={{ marginTop: 20, fontSize: 12, color: '#999', textAlign: 'center' }}>
+            Version {errorDetails?.appVersion || '1.0.0'} ({errorDetails?.buildNumber || ''})
+            {'\n'}
+            The error has been reported to our team.
+          </Text>
         </View>
       </SafeAreaProvider>
     );

@@ -61,29 +61,59 @@ export default ({ config }) => {
         owner: 'vie-incorporated'
       }
     },
-    plugins: [
-      [
-        'sentry-expo',
-        {
-          organization: 'lasso-milk-and-creamery-llc',
-          project: 'lasso-dairy-mobile',
-          // Automatically upload source maps during the build
-          autoUploadSourceMaps: true,
-          authToken: EXPO_PUBLIC_SENTRY_AUTH_TOKEN
-        }
-      ]
-    ],
-    hooks: {
-      postPublish: [
-        {
-          file: 'sentry-expo/upload-sourcemaps',
-          config: {
-            organization: 'lasso-milk-and-creamery-llc',
-            project: 'lasso-dairy-mobile',
-            authToken: EXPO_PUBLIC_SENTRY_AUTH_TOKEN
+  plugins: [
+    [
+      'sentry-expo',
+      {
+        organization: 'lasso-milk-and-creamery-llc',
+        project: 'lasso-dairy-mobile',
+        // Automatically upload source maps during the build
+        autoUploadSourceMaps: true,
+        authToken: EXPO_PUBLIC_SENTRY_AUTH_TOKEN,
+        // Enable native error reporting
+        enableInExpoDevelopment: true,
+        // Configure native SDK settings
+        config: {
+          enableNativeCrashHandling: true,
+          enableAutoPerformanceTracking: true,
+          enableAutoSessionTracking: true,
+          // Disable debug in production builds
+          debug: EXPO_PUBLIC_ENVIRONMENT !== 'production',
+          // Native specific options
+          androidClientOptions: {
+            anrEnabled: true, // Detect Application Not Responding situations
+            nativeSdkEnabled: true
+          },
+          iosClientOptions: {
+            enableOutOfMemoryTracking: true,
+            enableWatchdogTerminationTracking: true,
+            enableAutoPerformanceTracing: true,
+            nativeSdkEnabled: true
           }
         }
-      ]
-    }
+      }
+    ]
+  ],
+  hooks: {
+    postPublish: [
+      {
+        file: 'sentry-expo/upload-sourcemaps',
+        config: {
+          organization: 'lasso-milk-and-creamery-llc',
+          project: 'lasso-dairy-mobile',
+          authToken: EXPO_PUBLIC_SENTRY_AUTH_TOKEN,
+          setCommits: true,
+          deployEnv: EXPO_PUBLIC_ENVIRONMENT
+        }
+      }
+    ]
+  },
+  updates: {
+    // Enable automatic updates to help recover from crashes
+    enabled: true,
+    fallbackToCacheTimeout: 0,
+    checkAutomatically: 'ON_LOAD',
+    url: 'https://u.expo.dev/lasso-dairy'
+  }
   };
 };
