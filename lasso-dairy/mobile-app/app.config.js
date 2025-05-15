@@ -62,6 +62,7 @@ export default ({ config }) => {
       EXPO_PUBLIC_ENVIRONMENT: EXPO_PUBLIC_ENVIRONMENT || 'development',
       EXPO_PUBLIC_API_URL,
       eas: {
+        projectId: "cefaa0db-6be3-44af-8b7a-c3451beb519c",
         owner: 'vie-incorporated'
       }
     },
@@ -117,7 +118,7 @@ export default ({ config }) => {
     enabled: true,
     fallbackToCacheTimeout: 0,
     checkAutomatically: 'ON_LOAD',
-    url: 'https://u.expo.dev/lasso-dairy'
+    url: 'https://u.expo.dev/cefaa0db-6be3-44af-8b7a-c3451beb519c'
   }
   };
 };

@@ -12,9 +12,6 @@ import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 
-// Debug Screens - only included in development builds
-import SentryDebugScreen from '../screens/debug/SentryDebugScreen';
-
 // Main App Screens
 import HomeScreen from '../screens/home/HomeScreen';
 import ProductDetailsScreen from '../screens/products/ProductDetailsScreen';
@@ -66,24 +63,6 @@ const MainTabNavigator = () => {
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Orders" component={OrdersScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
-      
-      {/* Debug tab only shown in development */}
-      {isDevelopment && (
-        <Tab.Screen 
-          name="Debug" 
-          component={SentryDebugScreen}
-          options={{
-            tabBarIcon: ({ focused, color, size }) => (
-              <Ionicons 
-                name={focused ? 'bug' : 'bug-outline'} 
-                size={size} 
-                color={color} 
-              />
-            ),
-            tabBarLabel: 'Debug',
-          }}
-        />
-      )}
     </Tab.Navigator>
   );
 };
@@ -124,24 +103,6 @@ const AppNavigator = ({ isLoading, userToken, isSignout }) => {
           <Stack.Screen name="MainApp" component={MainTabNavigator} />
           <Stack.Screen name="ProductDetails" component={ProductDetailsScreen} />
           <Stack.Screen name="Cart" component={CartScreen} />
-          
-          {/* Debug screens - only accessible in development */}
-          {isDevelopment && (
-            <Stack.Group screenOptions={{ headerShown: true }}>
-              <Stack.Screen 
-                name="SentryDebug" 
-                component={SentryDebugScreen}
-                options={({ navigation }) => ({
-                  title: 'Sentry Debug',
-                  headerRight: () => (
-                    <TouchableOpacity onPress={() => navigation.goBack()}>
-                      <Ionicons name="close" size={24} color={COLORS.black} />
-                    </TouchableOpacity>
-                  ),
-                })}
-              />
-            </Stack.Group>
-          )}
         </>
       )}
     </Stack.Navigator>
