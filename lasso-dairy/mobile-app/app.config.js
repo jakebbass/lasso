@@ -1,4 +1,6 @@
 import * as dotenv from 'dotenv';
+import { Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system';
 
 export default ({ config }) => {
   // Determine which env file to use based on release channel
@@ -7,6 +9,9 @@ export default ({ config }) => {
   
   // Load the appropriate env file with path
   dotenv.config({ path: envPath });
+  
+  // Log environment loading - helps with debugging
+  console.log(`Loading ${env} environment from ${envPath}`);
 
   // Define variables for readability and debugging
   const EXPO_PUBLIC_SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;

@@ -8,7 +8,7 @@ const SUPABASE_ANON_KEY = Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_ANON
 
 // Validate essential credentials
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.error('Missing Supabase configuration. Please check your environment variables.');
+  throw new Error('Missing Supabase configuration. Please check your environment variables in .env file.');
 }
 
 // Initialize Supabase client

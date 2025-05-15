@@ -2,22 +2,45 @@ import React, { useState, useEffect, useMemo, useReducer } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { View, Text, Button, Platform, AppState, LogBox } from 'react-native';
+import { View, Text, Button, Platform, AppState, LogBox, Alert } from 'react-native';
 import { COLORS } from './src/utils/theme';
 import AppNavigator from './src/navigation/AppNavigator';
 import AuthContext from './src/contexts/AuthContext';
-import supabase, { auth, users } from './src/services/supabaseClient';
-import { initializeSentry, reportError, withErrorBoundary } from './src/utils/sentryConfig';
-import * as Sentry from 'sentry-expo';
-import * as Updates from 'expo-updates';
 import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
+import * as Sentry from 'sentry-expo';
 import 'react-native-url-polyfill/auto';
+
+// Import Supabase with error handling
+let supabase, auth, users;
+try {
+  const supabaseModule = require('./src/services/supabaseClient');
+  supabase = supabaseModule.default;
+  auth = supabaseModule.auth;
+  users = supabaseModule.users;
+  console.log('Supabase client initialized successfully');
+} catch (error) {
+  console.error('Error initializing Supabase client:', error);
+  Alert.alert(
+    'Configuration Error',
+    'There was a problem loading the app configuration. Please make sure all environment variables are set correctly.',
+    [{ text: 'OK' }]
+  );
+}
+
+// Import Sentry utilities
+import { initializeSentry, reportError, withErrorBoundary } from './src/utils/sentryConfig';
 
 // Ignore specific warnings that might clutter logs
 LogBox.ignoreLogs([
   'Constants.deviceYearClass',
   'Constants.manifest',
 ]);
+
+// Log environment config for debugging
+console.log('App Environment:', Constants.expoConfig?.extra?.EXPO_PUBLIC_ENVIRONMENT);
+console.log('Supabase URL configured:', !!Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL);
+console.log('Sentry DSN configured:', !!Constants.expoConfig?.extra?.EXPO_PUBLIC_SENTRY_DSN);
 
 // Initialize sentry
 const sentryUtils = initializeSentry();
