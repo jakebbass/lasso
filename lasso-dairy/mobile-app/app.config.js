@@ -62,7 +62,6 @@ export default ({ config }) => {
       EXPO_PUBLIC_ENVIRONMENT: EXPO_PUBLIC_ENVIRONMENT || 'development',
       EXPO_PUBLIC_API_URL,
       eas: {
-        projectId: 'lasso-dairy',
         owner: 'vie-incorporated'
       }
     },
