@@ -16,7 +16,10 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.lassodairy.app"
+      "bundleIdentifier": "com.lassodairy.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -45,6 +48,7 @@
     ],
     "runtimeVersion": {
       "policy": "sdkVersion"
-    }
+    },
+    "owner": "vie-incorporated"
   }
 }

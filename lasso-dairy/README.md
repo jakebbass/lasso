@@ -4,7 +4,7 @@ A full-stack dairy delivery service application built with React Native and Supa
 
 ## Project Structure
 
-```
+```text
 lasso-dairy/
 ├── assets/               # Static assets like images and icons
 ├── backend/              # Backend Node.js server (optional, as primary backend is Supabase)
@@ -56,7 +56,7 @@ The application uses Supabase (PostgreSQL) as its database with the following ta
 
 The mobile app uses environment variables stored in `.env` for configuration:
 
-```
+```env
 EXPO_PUBLIC_SUPABASE_URL=your-supabase-url
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
@@ -76,6 +76,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 ## Authentication Flow
 
 The app uses Supabase Auth with the following flow:
+
 1. User signs up or logs in
 2. Auth state is managed through AuthContext
 3. Protected routes/screens are only accessible to authenticated users

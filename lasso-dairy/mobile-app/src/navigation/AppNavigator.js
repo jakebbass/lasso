@@ -1,7 +1,9 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { COLORS, FONTS, SIZES } from '../utils/theme';
 
 // Auth Screens
@@ -14,11 +16,18 @@ import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import HomeScreen from '../screens/home/HomeScreen';
 import ProductDetailsScreen from '../screens/products/ProductDetailsScreen';
 import CartScreen from '../screens/cart/CartScreen';
+import CheckoutScreen from '../screens/cart/CheckoutScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
+import EditProfileScreen from '../screens/profile/EditProfileScreen';
+import ChangePasswordScreen from '../screens/profile/ChangePasswordScreen';
 import OrdersScreen from '../screens/orders/OrdersScreen';
+import OrderDetailsScreen from '../screens/orders/OrderDetailsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+
+// Check if we're in development mode
+const isDevelopment = Constants.expoConfig?.extra?.EXPO_PUBLIC_ENVIRONMENT !== 'production';
 
 const MainTabNavigator = () => {
   return (
@@ -98,6 +107,10 @@ const AppNavigator = ({ isLoading, userToken, isSignout }) => {
           <Stack.Screen name="MainApp" component={MainTabNavigator} />
           <Stack.Screen name="ProductDetails" component={ProductDetailsScreen} />
           <Stack.Screen name="Cart" component={CartScreen} />
+          <Stack.Screen name="Checkout" component={CheckoutScreen} />
+          <Stack.Screen name="OrderDetails" component={OrderDetailsScreen} />
+          <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+          <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
         </>
       )}
     </Stack.Navigator>
