@@ -1,3 +1,47 @@
 {
-  "expo": {}
+  "expo": {
+    "name": "Lasso Dairy",
+    "slug": "lasso-dairy",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./mobile-app/src/assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./mobile-app/src/assets/Splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.lassodairy.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./mobile-app/src/assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.lassodairy.app"
+    },
+    "web": {
+      "favicon": "./mobile-app/src/assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "cefaa0db-6be3-44af-8b7a-c3451beb519c"
+      }
+    },
+    "plugins": [
+      "expo-dev-client"
+    ],
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "owner": "lasso-dairy"
+  }
 }

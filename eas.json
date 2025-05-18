@@ -1,21 +1,80 @@
 {
   "cli": {
-    "version": ">= 16.6.1",
+    "version": ">= 5.9.0",
     "appVersionSource": "remote"
   },
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "channel": "development",
+      "env": {
+        "APP_ENV": "development"
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug",
+        "developmentClient": true
+      },
+      "ios": {
+        "simulator": true,
+        "buildConfiguration": "Debug",
+        "developmentClient": true
+      }
+    },
+    "development-simulator": {
+      "extends": "development",
+      "ios": {
+        "simulator": true
+      }
+    },
+    "development-device": {
+      "extends": "development",
+      "ios": {
+        "simulator": false
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "APP_ENV": "development"
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "channel": "preview"
     },
     "production": {
-      "autoIncrement": true
+      "env": {
+        "APP_ENV": "production"
+      },
+      "autoIncrement": true,
+      "channel": "production"
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "jake@viehq.com",
+        "ascAppId": "4H2DZ2FCZ9",
+        "appleTeamId": "RCPV4JYL9A",
+        "distributionCertificate": {
+          "serialNumber": "1695002C6486183B979778C6BAA676B",
+          "developerId": "YJKAZJQ6F3"
+        },
+        "provisioningProfile": {
+          "appleUUID": "2cc31b67-cc27-4378-a68c-0d02a538c7d1",
+          "developerId": "8XM59BD6XP"
+        }
+      },
+      "android": {
+        "serviceAccountKeyPath": "./play-store-credentials.json",
+        "track": "production",
+        "keystore": {
+          "keyAlias": "7d9666a6c3dcc0b9e075d091fa0651cc",
+          "type": "JKS"
+        }
+      }
+    }
   }
 }
